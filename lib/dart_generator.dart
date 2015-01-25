@@ -117,7 +117,8 @@ class Generator {
     final transformations = _buildTransformations(unit, code);
     final source = _applyTransformations(code, transformations);
     try {
-      generatedFile.writeAsStringSync(new CodeFormatter().format(CodeKind.COMPILATION_UNIT, source).source);
+      FormatterOptions options = new FormatterOptions(lineSeparator: Platform.isWindows ? '\r\n' : '\n');
+      generatedFile.writeAsStringSync(new CodeFormatter(options).format(CodeKind.COMPILATION_UNIT, source).source);
     } on FormatterException {
       generatedFile.writeAsStringSync(source);
     }
