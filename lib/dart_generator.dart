@@ -133,6 +133,43 @@ class Generator {
 
   List<_Transformation> _buildTransformations(CompilationUnit unit, String code) {
     final result = new List<_Transformation>();
+
+    final Map<String, String> libraries = {
+      'dart.js': 'js',
+      'js_wrapping': 'jsw'
+    };
+
+    final Map<String, String> raw = {
+      'js': 'dart:js',
+      'jsw': 'package:js_wrapping/js_wrapping.dart',
+    };
+
+    final Map<String, bool> imports = {};
+
+    for (final directive in unit.directives) {
+      if (directive is ImportDirective) {
+        String libraryName = directive.uriElement.name;
+
+        if (libraryName == _LIBRARY_NAME) {
+          // Remove dependency on js_wrapping_generator from output.
+          _removeNode(result, directive);
+        }
+        else {
+          String key = libraries[libraryName];
+
+          if (key != null && directive.prefix.name == key) {
+            raw.remove(key);
+          }
+        }
+      }
+    }
+
+    // Add required libraries if not already present.
+    for (final key in raw.keys) {
+      final int offset = unit.directives.isNotEmpty ? unit.directives.last.end : 0;
+      result.add(new _Transformation(offset, offset, "\nimport '${raw[key]}' as $key;"));
+    }
+
     for (final declaration in unit.declarations) {
       if (declaration is ClassDeclaration && _hasAnnotation(declaration, 'wrapper')) {
         // remove @wrapper
