@@ -370,7 +370,15 @@ bool _isTypeTransferable(DartType type) {
   return false;
 }
 
-bool _isTypeSerializable(DartType type) => type != null && _isTypeAssignableWith(type, 'js_wrapping', 'Serializable');
+bool _isTypeSerializable(DartType type) =>
+    type != null && (_isTypeAssignableWith(type, 'js_wrapping', 'Serializable') || _isTypeWrapper(type));
+
+bool _isTypeWrapper(DartType type) =>
+    type != null &&
+    type.element.metadata != null &&
+        type.element.metadata.any((m) =>
+        m.element.library.name == _LIBRARY_NAME &&
+        m.element.name == 'wrapper');
 
 bool _isTypeJsObject(DartType type) => type != null && _isTypeAssignableWith(type, 'dart.js', 'JsObject');
 
