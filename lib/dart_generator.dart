@@ -67,6 +67,11 @@ class _Generate {
   const _Generate();
 }
 
+class Module {
+  final String module;
+  const Module(this.module);
+}
+
 class Types {
   final List<Type> types;
   const Types(this.types);
@@ -201,6 +206,27 @@ class Generator {
           _removeToken(result, abstractKeyword);
         }
 
+        final Annotation moduleAnnotation =
+          declaration.metadata.firstWhere(
+              (m) =>
+                _isElementTypedWith(
+                    m.element is ConstructorElement
+                      ? m.element.enclosingElement
+                      : m.element,
+                    _LIBRARY_NAME,
+                    'Module'
+                ),
+              orElse: () => null
+          );
+        final List<String> module = moduleAnnotation != null
+            ? (moduleAnnotation.arguments.arguments.first as SimpleStringLiteral)
+                .value
+                .split(new RegExp(r'\.'))
+            : [];
+        if (moduleAnnotation != null) {
+          _removeNode(result, moduleAnnotation);
+        }
+
         // add cast and constructor
         final name = declaration.name;
         final position = declaration.leftBracket.offset;
@@ -229,8 +255,15 @@ class Generator {
               constr.write(m.initializers.where((e) => e is! SuperConstructorInvocation).join(','));
               constr.write(',');
             }
+            constr.write("super(${dartConstructorNS != null ? dartConstructorNS : 'js.context'}");
+
+            final List<String> constructorPath = new List.from(module)..add(m.returnType.toString());
+            for (String segment in constructorPath) {
+              constr.write("['$segment']");
+            }
+
             constr
-              ..write("super(${dartConstructorNS != null ? dartConstructorNS : 'js.context'}['${m.returnType}'], [${m.parameters.parameters.map(_handleFormalParameter).join(', ')}])")
+              ..write(", [${m.parameters.parameters.map(_handleFormalParameter).join(', ')}])")
               ..write(m.body != null ? m.body : ';');
             result.add(new _Transformation(m.offset, m.end, constr.toString()));
           } else if (m is FieldDeclaration) {
@@ -455,6 +488,7 @@ bool _hasAnnotation(Declaration declaration, String name) =>
 
 String _applyTransformations(String code, List<_Transformation> transformations) {
   int padding = 0;
+  transformations.sort((a, b) => a.begin.compareTo(b.begin));
   for (final t in transformations) {
     code = code.substring(0, t.begin + padding) + t.replace + code.substring(t.end + padding);
     padding += t.replace.length - (t.end - t.begin);
